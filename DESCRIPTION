@@ -1,0 +1,14 @@
+Package: Reserves.Util
+Type: Package
+Title: Aries and Reserves Utilities
+Version: 0.1.0
+Author: Alishan Dhukka
+Maintainer: Alishan Dhukka <adhukka@hilcorp.com>
+Description: These set of functions help extract Aries economic data from a speicified data source as well as production data from the Enertia04 server.
+License: Not Applicable
+Encoding: UTF-8
+LazyData: true
+Imports: RODBC, dplyr, magrittr, reshape2
+RoxygenNote: 6.1.1
+Suggests: 
+    testthat
