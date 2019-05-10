@@ -10,5 +10,5 @@ Encoding: UTF-8
 LazyData: true
 Imports: RODBC, dplyr, magrittr, reshape2
 RoxygenNote: 6.1.1
-Suggests: 
+Suggests:
     testthat
