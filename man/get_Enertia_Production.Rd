@@ -4,19 +4,19 @@
 \alias{get_Enertia_Production}
 \title{Retrieve Enertia Production Data.}
 \usage{
-get_Enertia_Production(WellCompCodes)
+get_Enertia_Production(well_comp_codes)
 }
 \arguments{
-\item{WellCompCodes}{Character vector containing a list of Well Completion Codes to be queried.}
+\item{well_comp_codes}{A string.}
 }
 \value{
 A dataframe containing Production data
 }
 \description{
-The following functin will make a defauly connection to the Enertia_Reports database located on the Default Enertia04 Server.
-It will then take the WellCompCodes vector which contains a sequence of Enertia Completion Codes to query.
+The following functin will make a default connection to the Enertia_Reports database located on the Default Enertia04 Server.
+It will then take the well_comp_codes vector which contains a sequence of Enertia Completion Codes to query.
 The function will then return a dataframe object with all the enertia production data that exists for each
-Enertia Completion Code within the WellCompCodes vector.
+Enertia Completion Code within the well_comp_codes vector.
 }
 \examples{
 get_Enertia_Production("49.1016.0022.00")

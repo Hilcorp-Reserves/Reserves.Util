@@ -8,23 +8,23 @@ get_Economics(server, database, PROPNUM, scenario_name,
   view_by = "Scenario")
 }
 \arguments{
-\item{server}{String containing the server name where the Aries database is located.}
+\item{server}{A string.}
 
-\item{database}{String contiaing the name of the Aries database.}
+\item{database}{A string.}
 
-\item{PROPNUM}{Sharacter vector containing a list of Aries PROPNUM to query from the database.}
+\item{PROPNUM}{A String}
 
-\item{scenario_name}{String containing the name of the scenario for which economic lines should be queried.}
+\item{scenario_name}{A string}
 
-\item{view_by}{String containing the method as to which lines are to be filtered out (see description...).}
+\item{view_by}{A string}
 }
 \value{
-A list object containing a dataframe of economic data for each Aries economic section.
+A dataframe containing Economic data
 }
 \description{
 This function returns economic lines as a list by section based on the specified Data Source and Scenario Name.
-PROPNUM is a vector of Aries PROPNUM to be queried.
-The view_by parameter determines how the function queries the data:
+PROPNUM is a vector of PROPNUMs to be queried.
+The View_by parameter determines how the function queries the data:
    "All" = all lines,
    "Full Scenario" = All qualified lines within desired scenario,
    "Scenario" = Highest qualified line specific to scenario

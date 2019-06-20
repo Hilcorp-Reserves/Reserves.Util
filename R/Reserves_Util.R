@@ -1,11 +1,13 @@
-# Reserves_Util Package
+# Reserves_Util Package v0.1.0
 #
-# Group of useful function for reserves work.
+# This package contains multiple utility function that automate Aries workflow.
+#
+#
+# Some useful keyboard shortcuts for package authoring:
 #
 #   Build and Reload Package:  'Ctrl + Shift + B'
 #   Check Package:             'Ctrl + Shift + E'
 #   Test Package:              'Ctrl + Shift + T'
-
 
 library(RODBC)
 library(magrittr)
@@ -28,6 +30,189 @@ get_dbhandle = function(server, database){
 
   return(db_handle)
 }  #Complete
+
+#' Convert Aries Lookup Tables to Hard Coded Lines
+#'
+#' @param economics_by_section Dataframe object containing economic lines for each Aries econonmic section.
+#' @param ar_lookup Dataframe containing the LOOKUP tables from an Aries database.
+#' @param ac_property Dataframe containing the Master table from and Aries database.
+#' @return Returns a dataframe object containing hard coded economic lines from Aries.
+#' @examples
+#' Lookup_to_Hard_Coded(economics_by_section, ar_lookup, ac_property)
+#' @description
+#' This function will convert Aries LOOKUP tables within the Economics_by Section dataframe object into hard coded lines.
+Lookup_to_Hard_Coded = function(economics_by_section, ar_lookup, ac_property){
+
+  FINAL_Inputs = dplyr::bind_rows(lapply(X = unique(economics_by_section[economics_by_section$KEYWORD == "LOOKUP", "EXPRESSION"]),
+                                  FUN = function(i){
+      lookup_tab = ar_lookup[ar_lookup$NAME == strsplit(i, " ")[[1]][1], c(1:12)]
+      lookup_items = data.frame(lookup_tab[lookup_tab$LINETYPE == 0, "VAR0"], stringsAsFactors = FALSE)
+      lookup_parms = lookup_tab[lookup_tab$LINETYPE == 0, seq(5,11,1)]
+      if(is.element(FALSE, !is.na(t(lookup_parms)))){
+          lookup_parms = t(t(lookup_parms)[!is.na(t(lookup_parms)),])
+      }
+
+      cat_index_M = grep(lookup_tab[lookup_tab$LINETYPE == 1 & lookup_tab$SEQUENCE == 1, c(4:ncol(lookup_tab))], pattern = "M") + 3
+      index = t(which(t(lookup_parms) == "?", arr.ind = TRUE))
+      cat_index_NCL = seq(max(cat_index_M)+1, by = 1, length.out = ncol(index))
+
+      if(grepl(pattern = '"', x = lookup_items)){
+          for(j in seq(1,nrow(lookup_items))){
+              if(lookup_items[j,1] == "\""){lookup_items[j,1] = lookup_items[j-1,1]}
+          }
+      }
+
+      lookup_tab = lookup_tab[lookup_tab$LINETYPE ==3, c(1:max(cat_index_NCL))]
+
+      if(length(cat_index_M)>1){
+          field_match = data.frame(field_match = apply(lookup_tab[ , as.numeric(cat_index_M)] , 1 , paste , collapse = "" ),
+                                  stringsAsFactors = FALSE)
+          lookup_match = data.frame(strsplit(strsplit(i, "@M.")[[1]], " "),
+                                  stringsAsFactors = FALSE)
+      }
+      if(length(cat_index_M)==1){
+          field_match = data.frame(field_match = lookup_tab[, "VAR0"],
+                                  stringsAsFactors = FALSE)
+          lookup_match = data.frame(strsplit(strsplit(i, "@M.")[[1]], " "),
+                                  stringsAsFactors = FALSE)
+      }
+
+      lookup_tab = cbind(NAME = lookup_tab[,"NAME"],
+                        field_match = field_match,
+                        lookup_tab[, as.numeric(cat_index_NCL)])
+
+      FINAL = dplyr::bind_rows(lapply(X = unique(economics_by_section[(economics_by_section$EXPRESSION == i & economics_by_section$KEYWORD == "LOOKUP"), "PROPNUM"]),
+                               FUN = function(x){
+
+          lookup_parms_add = lookup_parms
+          if(length(cat_index_M)>1){
+              field_code = data.frame(field_code = apply(ac_property[ac_property$PROPNUM == x, as.character(lookup_match[2:length(lookup_match)])],
+                                                          MARGIN = 1 ,
+                                                          FUN = paste , collapse = ""),
+                                      stringsAsFactors = FALSE)
+          }
+          if(length(cat_index_M)==1){
+              field_code = data.frame(field_code = ac_property[ac_property$PROPNUM == x, lookup_match[1,2]],
+                                      stringsAsFactors = FALSE)
+          }
+
+          if(is.element(field_code, field_match$field_match)){
+              values = data.frame(t(lookup_tab[lookup_tab$field_match == field_code[1,1], seq(3,2+ncol(index))]),
+                                  stringsAsFactors = FALSE)
+              for(k in seq(1, ncol(index))){
+                  lookup_parms_add[index[2,k], index[1,k]] = as.character(values[k,1])
+              }
+
+              lookup_parms_add = cbind(data.frame(rep(x, nrow(lookup_items)),
+                                                  stringsAsFactors = FALSE),
+                                      rep(economics_by_section[1,"SECTION"], nrow(lookup_items)),
+                                      seq(1,nrow(lookup_items)),
+                                      data.frame(rep(economics_by_section[economics_by_section$PROPNUM == x, "QUALIFIER"][1], nrow(lookup_items)),
+                                                stringsAsFactors = FALSE),
+                                      lookup_items,
+                                      dplyr::bind_rows(lapply(seq(1, nrow(lookup_items)),
+                                                      FUN = function(x){data.frame(paste(lookup_parms_add[x,], collapse = " "),stringsAsFactors = FALSE)}
+                                      )),
+                                      Rank = data.frame(rep(NA, nrow(lookup_items)),
+                                                        stringsAsFactors = FALSE))
+
+              names(lookup_parms_add) = names(economics_by_section)
+          }
+
+          return(lookup_parms_add)
+        }))
+
+
+      return(FINAL)
+    }))
+
+  return(FINAL_Inputs)
+}
+
+#' Convert Aries Sidefiles Tables to Hard Coded Lines (Excludes Price Files)
+#'
+#' @param economics_by_section Dataframe object containing economic lines for each Aries econonmic section.
+#' @param ar_sidefile Dataframe containing the sidefile tables from an Aries database.
+#' @param ac_property Dataframe containing the Master table from and Aries database.
+#' @return Returns a dataframe object containing hard coded economic lines from Aries.
+#' @examples
+#' Sidefile_to_Hard_Coded(economics_by_section, ar_sidefile, AC_Property)
+#' @description
+#' This function will convert Aries sidefile tables within the Economics_by Section dataframe object into hard coded lines. (Excludes Price Files)
+Sidefile_to_Hard_Coded = function(economics_by_section, ar_sidefile, ac_property){
+
+  Hard_Coded_Inputs = bind_rows(lapply(X = unique(economics_by_section[economics_by_section$KEYWORD == "SIDEFILE", "EXPRESSION"]),
+                                      FUN = function(i){
+        sidefile = ar_sidefile[ar_sidefile$FILENAME == strsplit(i, " ")[[1]][1], ]
+        # If the sidefile contains lines for a price forecast
+        if(length(grep(pattern = "PRI", sidefile[,"KEYWORD"])) == 0){
+          # If continuation lines exists, then paste the keyword from the previous non coninuation line.
+          if(is.element("\"", sidefile$KEYWORD)){
+              for(j in seq(1,length(sidefile$KEYWORD))){
+                  if(sidefile[j,"KEYWORD"] == "\""){sidefile[j,"KEYWORD"] = sidefile[j-1,"KEYWORD"]}
+              }
+          }
+          additional_lines = bind_rows(lapply(X = unique(economics_by_section[economics_by_section$EXPRESSION == i, "PROPNUM"]),
+                                            FUN = function(x){
+               sidefile_hard_code = cbind(data.frame(rep(x, nrow(sidefile)),
+                                                      stringsAsFactors = FALSE),
+                                          rep(economics_by_section[1,"SECTION"], nrow(sidefile)),
+                                          seq(1, nrow(sidefile)),
+                                          data.frame(rep(economics_by_section[economics_by_section$PROPNUM == x, "QUALIFIER"][1], nrow(sidefile)),
+                                                    stringsAsFactors = FALSE),
+                                          sidefile$KEYWORD,
+                                          sidefile$EXPRESSION,
+                                          Rank = data.frame(rep(NA, nrow(sidefile)),
+                                                          stringsAsFactors = FALSE))
+                return(sidefile_hard_code)
+          }))
+          names(additional_lines) = names(economics_by_section)
+          return(additional_lines)
+        }
+  })
+  )
+  return(data.frame(Hard_Coded_Inputs, stringsAsFactors = FALSE))
+}
+
+
+#' Queries Aries Input Settings
+#'
+#' @param user_input_settings String containing the name of the Input Settings in Aries.
+#' @param server String containing the server name where the Aries database is located.
+#' @param database String containing the Aries database name.
+#' @return Returns a list object containing the As of Date, Base Date, PW table, common lines, and default lines for a specified user input settings.
+#' @examples
+#' get_Input_Settings(user_input_settings = "HEC0119", server = "extsql01", database = "Aries")
+#' @description
+#' This function will retrieve the As of Date, Base Date, PW table, common lines, and default lines for the specified user input settings.
+get_Input_Settings = function(user_input_settings, server, database){
+
+    db_handle = get_dbhandle(server = server, database = database)
+    ac_setup = sqlQuery(channel = db_handle, query = paste("SELECT * FROM AC_SETUP;"))
+    ac_setupdata = sqlQuery(channel = db_handle, query = paste("SELECT * FROM AC_SETUPDATA;"))
+
+    ac_setup = ac_setup[ac_setup$SETUPNAME == user_input_settings, ]
+
+    frame = ac_setupdata[(ac_setupdata$SECNAME == ac_setup$FRAME & ac_setupdata$SECTYPE == "FRAME"), "LINE"] %>% strsplit(., split = " ")
+    pw = ac_setupdata[(ac_setupdata$SECNAME == ac_setup$PW & ac_setupdata$SECTYPE == "PW"), "LINE"] %>% strsplit(., split = " ")
+    esc = ac_setupdata[(ac_setupdata$SECNAME == ac_setup$ESC & ac_setupdata$SECTYPE == "ESC"), "LINE"][1] %>% strsplit(., split = " ")
+    capital = ac_setupdata[(ac_setupdata$SECNAME == ac_setup$CAPITAL & ac_setupdata$SECTYPE == "CAPITAL"), "LINE"] %>% strsplit(., split = " ")
+    corp_tax = ac_setupdata[(ac_setupdata$SECNAME == ac_setup$CORPTAX & ac_setupdata$SECTYPE == "CORPTAX"), "LINE"] %>% strsplit(., split = " ")
+    ssroy = ac_setupdata[(ac_setupdata$SECNAME == ac_setup$SSROY & ac_setupdata$SECTYPE == "SSROY"), "LINE"] %>% strsplit(., split = " ")
+    special = ac_setupdata[(ac_setupdata$SECNAME == ac_setup$SPECIAL & ac_setupdata$SECTYPE == "SPECIAL"), "LINE"] %>% strsplit(., split = " ")
+    com_lines = ac_setupdata[(ac_setupdata$SECNAME == ac_setup$COMLINES & ac_setupdata$SECTYPE == "COMLINES"), ]
+    def_lines = ac_setupdata[(ac_setupdata$SECNAME == ac_setup$DEFLINES & ac_setupdata$SECTYPE == "DEFLINES"), ]
+    va_rates = ac_setupdata[(ac_setupdata$SECNAME == ac_setup$VARATES & ac_setupdata$SECTYPE == "VARATES"), "LINE"] %>% strsplit(., split = " ")
+
+    as_of_date = frame[[2]][1]
+    base_date = frame[[1]][1]
+    pw_table = pw[[2]]
+    common_lines = data.frame(com_lines[ ,c(1:3)], Section = substr(x = com_lines$LINENUMBER, start = 1, stop = 1), com_lines[ ,c(4:5)])
+    default_lines = data.frame(def_lines[ ,c(1:3)], Section = substr(x = def_lines$LINENUMBER, start = 2, stop = 2), def_lines[ ,c(4:5)])
+
+    return(list(as_of_date, base_date, pw_table, common_lines, default_lines))
+
+}
 
 #' Retrieve Aries economic data.
 #'
@@ -191,16 +376,16 @@ get_Economics = function(server, database, PROPNUM, scenario_name, view_by = "Sc
 
 #' Retrieve Enertia Production Data.
 #'
-#' @param WellCompCodes A string.
+#' @param well_comp_codes A string.
 #' @return A dataframe containing Production data
 #' @examples
 #' get_Enertia_Production("49.1016.0022.00")
 #' @description
-#' The following functin will make a defauly connection to the Enertia_Reports database located on the Default Enertia04 Server.
-#' It will then take the WellCompCodes vector which contains a sequence of Enertia Completion Codes to query.
+#' The following functin will make a default connection to the Enertia_Reports database located on the Default Enertia04 Server.
+#' It will then take the well_comp_codes vector which contains a sequence of Enertia Completion Codes to query.
 #' The function will then return a dataframe object with all the enertia production data that exists for each
-#' Enertia Completion Code within the WellCompCodes vector.
-get_Enertia_Production = function(WellCompCodes){
+#' Enertia Completion Code within the well_comp_codes vector.
+get_Enertia_Production = function(well_comp_codes){
     #Connect to Datasource
     db_handle = get_dbhandle(server = "ENERTIA04", database = "Enertia_Reports")
     #Compile Query
@@ -216,25 +401,218 @@ get_Enertia_Production = function(WellCompCodes){
                            FROM pdMasProdAllocDetail
                            INNER JOIN pdRptWellCompletionAssetTeamHierarchy
                            ON pdMasProdAllocDetail.DtlPropHID = pdRptWellCompletionAssetTeamHierarchy.WellCompHID
-                             WHERE pdRptWellCompletionAssetTeamHierarchy.WellCompCode In (", paste0("'", WellCompCodes, collapse ="',") ,"')
+                             WHERE pdRptWellCompletionAssetTeamHierarchy.WellCompCode In (", paste0("'", well_comp_codes, collapse ="',") ,"')
                                AND pdMasProdAllocDetail.DtlProdDisp = 'FRM';")
     # Query the database, trim any excess white space, convert all factor columns to character, and convert the volumes to numeric.
     enertia_production = data.frame(RODBC::sqlQuery(db_handle, query))
     enertia_production[] = lapply(enertia_production, trimws)
     enertia_production[] = lapply(enertia_production, as.character)
     enertia_production[,"DtlVolume"] = as.numeric(enertia_production[,"DtlVolume"])
-
-    # PIVOT table by production code
-    enertia_production = reshape2::dcast(data = enertia_production,
-                                         formula = WellCompCode+DtlProdDate~DtlProdCode,
-                                         value.var = "DtlVolume",
-                                         fun.aggregate = sum)
-
     # Close ODBC data connection to free up datasource.
     RODBC::odbcClose(channel = db_handle)
-    # Replace all NA values within product columns with a 0
-    enertia_production[is.na(enertia_production)] = 0
 
+    # PIVOT table by production code
+    enertia_production = tryCatch(reshape2::dcast(data = enertia_production,
+                                                  formula = WellCompCode+DtlProdDate~DtlProdCode,
+                                                  value.var = "DtlVolume",
+                                                  fun.aggregate = sum),
+                         error = function(cond){
+                                   print("ERROR: Data Not Found. Make sure the enertia entity exists.")
+                                   enertia_production = NULL
+
+                                 }
+                         )
+
+    if(!is.null(enertia_production)){
+        # Replace all NA values within product columns with a 0
+        enertia_production[is.na(enertia_production)] = 0
+        #Add missing columns with 0 if data does'nt exist
+        if(!is.element("GAS", names(enertia_production))){enertia_production = dplyr::bind_cols(enertia_production, GAS = rep(0, nrow(enertia_production)))}
+        if(!is.element("OIL", names(enertia_production))){enertia_production = dplyr::bind_cols(enertia_production, OIL = rep(0, nrow(enertia_production)))}
+        if(!is.element("WATER", names(enertia_production))){enertia_production = dplyr::bind_cols(enertia_production, WATER = rep(0, nrow(enertia_production)))}
+        if(!is.element("PPROD", names(enertia_production))){enertia_production = dplyr::bind_cols(enertia_production, PPROD = rep(0, nrow(enertia_production)))}
+
+        #Rearrange columns to maintain consistent table structure upon return.
+        enertia_production = data.frame(Enertia_Code = enertia_production[ ,"WellCompCode"],
+                                        Date = enertia_production[ ,"DtlProdDate"],
+                                        OIL = enertia_production[ ,"OIL"],
+                                        GAS = enertia_production[ ,"GAS"],
+                                        PPROD = enertia_production[ ,"PPROD"],
+                                        WATER = enertia_production[ ,"WATER"], stringsAsFactors = FALSE)
+    }
 
   return(enertia_production)
 }
+
+#' Retrieve Enertia Lineage as a data frame.
+#'
+#' @param asset_team_code A string.
+#' @return A dataframe containing the Enertia Lineage of a set of Asset Team Codes
+#' @examples
+#' get_Enertia_Lineage_by_Asset_Team("RMR")
+#' get_Enertia_Lineage_by_Asset_Team(c("RMR", "WLA", "ELA")
+#' @description
+#' The following functin will make a default connection to the Enertia_Reports database located on the Default Enertia04 Server.
+#' It will then take the asset_team_code vector which contains a sequence of Enertia Asset Team Codes to query.
+#' The function will then return a dataframe object with all enertia entities that exists for each
+#' Asset Team Code within the asset_team_code vector.
+get_Enertia_Lineage_by_Asset_Team = function(asset_team_code){
+
+    db_handle = get_dbhandle(server = "ENERTIA04", database = "Enertia_Reports")
+    #Compile Query
+    query = paste0("SELECT pdRptWellCompletionAssetTeamHierarchy.WellCompCode,
+                           pdRptWellCompletionAssetTeamHierarchy.WellCompName,
+                           pdRptWellCompletionAssetTeamHierarchy.APINumber,
+                           pdRptWellCompletionAssetTeamHierarchy.FieldName,
+                           pdRptWellCompletionAssetTeamHierarchy.FieldCode,
+                           pdRptWellCompletionAssetTeamHierarchy.SubFieldName,
+                           pdRptWellCompletionAssetTeamHierarchy.SubFieldCode,
+                           pdRptWellCompletionAssetTeamHierarchy.AssetTeamCode,
+                           pdRptWellCompletionAssetTeamHierarchy.OperatorName,
+                           pdRptWellCompletionAssetTeamHierarchy.State,
+                           pdRptWellCompletionAssetTeamHierarchy.County
+                           FROM pdRptWellCompletionAssetTeamHierarchy
+                           WHERE pdRptWellCompletionAssetTeamHierarchy.AssetTeamCode In (", paste0("'", asset_team_code, collapse ="',") ,"');")
+
+    # Query the database, trim any excess white space, convert all factor columns to character, and convert the volumes to numeric.
+    enertia_lineage = data.frame(RODBC::sqlQuery(db_handle, query))
+    enertia_lineage[] = lapply(enertia_lineage, trimws)
+    enertia_lineage[] = lapply(enertia_lineage, as.character)
+    # Close ODBC data connection to free up datasource.
+    RODBC::odbcClose(channel = db_handle)
+
+
+  return(enertia_lineage)
+}
+
+#' Retrieve Enertia Lineage as a data frame.
+#'
+#' @param field_code A string.
+#' @return A dataframe containing the Enertia Lineage of a set of Asset Team Codes
+#' @examples
+#' get_Enertia_Lineage_by_Field_Code("49.1017")
+#' get_Enertia_Lineage_by_Field_Code(c("49.1017", "49.1015")
+#' @description
+#' The following functin will make a default connection to the Enertia_Reports database located on the Default Enertia04 Server.
+#' It will then take the field_code vector which contains a sequence of Enertia Field Codes to query.
+#' The function will then return a dataframe object with all enertia entities that exists for each
+#' Field Code within the field_code vector.
+get_Enertia_Lineage_by_Field_Code = function(field_code){
+
+    db_handle = get_dbhandle(server = "ENERTIA04", database = "Enertia_Reports")
+    #Compile Query
+    query = paste0("SELECT pdRptWellCompletionAssetTeamHierarchy.WellCompCode,
+                           pdRptWellCompletionAssetTeamHierarchy.WellCompName,
+                           pdRptWellCompletionAssetTeamHierarchy.APINumber,
+                           pdRptWellCompletionAssetTeamHierarchy.FieldName,
+                           pdRptWellCompletionAssetTeamHierarchy.FieldCode,
+                           pdRptWellCompletionAssetTeamHierarchy.SubFieldName,
+                           pdRptWellCompletionAssetTeamHierarchy.SubFieldCode,
+                           pdRptWellCompletionAssetTeamHierarchy.AssetTeamCode,
+                           pdRptWellCompletionAssetTeamHierarchy.OperatorName,
+                           pdRptWellCompletionAssetTeamHierarchy.State,
+                           pdRptWellCompletionAssetTeamHierarchy.County
+                           FROM pdRptWellCompletionAssetTeamHierarchy
+                           WHERE pdRptWellCompletionAssetTeamHierarchy.FieldCode In (", paste0("'", field_code, collapse ="',") ,"');")
+
+    # Query the database, trim any excess white space, convert all factor columns to character, and convert the volumes to numeric.
+    enertia_lineage = data.frame(RODBC::sqlQuery(db_handle, query))
+    enertia_lineage[] = lapply(enertia_lineage, trimws)
+    enertia_lineage[] = lapply(enertia_lineage, as.character)
+    # Close ODBC data connection to free up datasource.
+    RODBC::odbcClose(channel = db_handle)
+
+
+  return(enertia_lineage)
+}
+
+#' Retrieve Enertia Lineage as a data frame.
+#'
+#' @param enertia_code A string.
+#' @return A dataframe containing the Enertia Lineage of a set of Asset Team Codes
+#' @examples
+#' get_Enertia_Lineage_by_Enertia_Code("49.1017.0007.00")
+#' get_Enertia_Lineage_by_Enertia_Code(c("49.1017.0007.00", "49.1017.0023.00"))
+#' @description
+#' The following functin will make a default connection to the Enertia_Reports database located on the Default Enertia04 Server.
+#' It will then take the enertia_code vector which contains a sequence of Enertia Codes to query.
+#' The function will then return a dataframe object with all enertia entities that exists for each
+#' Enertia Code within the enertia_code vector.
+get_Enertia_Lineage_by_Enertia_Code = function(enertia_code){
+
+    db_handle = get_dbhandle(server = "ENERTIA04", database = "Enertia_Reports")
+    #Compile Query
+    query = paste0("SELECT pdRptWellCompletionAssetTeamHierarchy.WellCompCode,
+                           pdRptWellCompletionAssetTeamHierarchy.WellCompName,
+                           pdRptWellCompletionAssetTeamHierarchy.APINumber,
+                           pdRptWellCompletionAssetTeamHierarchy.FieldName,
+                           pdRptWellCompletionAssetTeamHierarchy.FieldCode,
+                           pdRptWellCompletionAssetTeamHierarchy.SubFieldName,
+                           pdRptWellCompletionAssetTeamHierarchy.SubFieldCode,
+                           pdRptWellCompletionAssetTeamHierarchy.AssetTeamCode,
+                           pdRptWellCompletionAssetTeamHierarchy.OperatorName,
+                           pdRptWellCompletionAssetTeamHierarchy.State,
+                           pdRptWellCompletionAssetTeamHierarchy.County
+                           FROM pdRptWellCompletionAssetTeamHierarchy
+                           WHERE pdRptWellCompletionAssetTeamHierarchy.WellCompCode In (", paste0("'", enertia_code, collapse ="',") ,"');")
+
+    # Query the database, trim any excess white space, convert all factor columns to character, and convert the volumes to numeric.
+    enertia_lineage = data.frame(RODBC::sqlQuery(db_handle, query))
+    enertia_lineage[] = lapply(enertia_lineage, trimws)
+    enertia_lineage[] = lapply(enertia_lineage, as.character)
+    # Close ODBC data connection to free up datasource.
+    RODBC::odbcClose(channel = db_handle)
+
+
+  return(enertia_lineage)
+}
+
+
+#' Retrieve Enertia Lineage as a data frame.
+#'
+#' @param API A string.
+#' @return A dataframe containing the Enertia Lineage for a specified vector of API Numbers
+#' @examples
+#' get_Enertia_Lineage_by_API("5002921693")
+#' get_Enertia_Lineage_by_API(c("5002921693", "50029219050000"))
+#' @description
+#' The following functin will make a default connection to the Enertia_Reports database located on the Default Enertia04 Server.
+#' It will then take the API vector which contains a sequence of API Numbers to query.
+#' The function will then return a dataframe object with all enertia entities that exists for each
+#' API within the API vector.
+get_Enertia_Lineage_by_API = function(API){
+
+    db_handle = get_dbhandle(server = "ENERTIA04", database = "Enertia_Reports")
+
+    enertia_lineage = lapply(X = API, FUN = function(i){
+
+                        #Compile Query
+                        query = paste0("SELECT pdRptWellCompletionAssetTeamHierarchy.WellCompCode,
+                                               pdRptWellCompletionAssetTeamHierarchy.WellCompName,
+                                               pdRptWellCompletionAssetTeamHierarchy.APINumber,
+                                               pdRptWellCompletionAssetTeamHierarchy.FieldName,
+                                               pdRptWellCompletionAssetTeamHierarchy.FieldCode,
+                                               pdRptWellCompletionAssetTeamHierarchy.SubFieldName,
+                                               pdRptWellCompletionAssetTeamHierarchy.SubFieldCode,
+                                               pdRptWellCompletionAssetTeamHierarchy.AssetTeamCode,
+                                               pdRptWellCompletionAssetTeamHierarchy.OperatorName,
+                                               pdRptWellCompletionAssetTeamHierarchy.State,
+                                               pdRptWellCompletionAssetTeamHierarchy.County
+                                               FROM pdRptWellCompletionAssetTeamHierarchy
+                                               WHERE (((pdRptWellCompletionAssetTeamHierarchy.APINumber) Like '", paste0(i, "%'));"))
+
+                        # Query the database, trim any excess white space, convert all factor columns to character, and convert the volumes to numeric.
+                        enertia_lineage = data.frame(RODBC::sqlQuery(db_handle, query))
+                        enertia_lineage[] = lapply(enertia_lineage, trimws)
+                        enertia_lineage[] = lapply(enertia_lineage, as.character)
+
+                      return(enertia_lineage)
+                  }) %>% dplyr::bind_rows(enertia_lineage)
+
+    # Close ODBC data connection to free up datasource.
+    RODBC::odbcClose(channel = db_handle)
+
+
+  return(enertia_lineage)
+}
+

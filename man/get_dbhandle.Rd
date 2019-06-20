@@ -7,12 +7,12 @@
 get_dbhandle(server, database)
 }
 \arguments{
-\item{server}{String containing the server name.}
+\item{server}{A string.}
 
-\item{database}{String containing the database name.}
+\item{database}{A string.}
 }
 \value{
-Returns a handle containing the database connection
+The handle containing the database connection
 }
 \description{
 This function opens a connection to the specified Server and Database parameters passed to it.
