@@ -1,0 +1,26 @@
+
+Version Update v 0.2.0
+
+	What's New?:
+
+		get_Enertia_Lineage_by_Asset_Team()
+		get_Enertia_Lineage_by_Field_Code()
+		get_Enertia_Lineage_by_Enertia_Code()
+		get_Enertia_Lineage_by_API()
+			- Added a set of new functions called get_Enertia_Lineage_by_...()
+			- Returns a dataframe containing lineage information for all enertia entities under the specified input parameters.
+	
+	What has been updated?:
+
+		get_Enertia_Production()
+			- Query has been updated to return Oil, Gas, Water columns even when data doesnt exist. 
+			- Missing values for Oil, Gas, or Water are replaced by 0 instead of NA or Null
+    			- Added code to rearrange columns to maintain consistent table structure upon return.
+    			- Updated column names
+    			- Added TryCatch block to return a NULL value and error when an invalid enertia code is provided as input.
+
+	  	test_get_Enertia_Production()
+    			- Added test to check for consistency in column ordering and that all required columns exists.
+	
+
+    
