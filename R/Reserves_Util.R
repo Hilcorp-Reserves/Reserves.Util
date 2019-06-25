@@ -403,7 +403,7 @@ get_Enertia_Production = function(well_comp_codes){
                            ON pdMasProdAllocDetail.DtlPropHID = pdRptWellCompletionAssetTeamHierarchy.WellCompHID
                              WHERE pdRptWellCompletionAssetTeamHierarchy.WellCompCode In (", paste0("'", well_comp_codes, collapse ="',") ,"')
                                AND pdMasProdAllocDetail.DtlProdDisp = 'FRM';")
-    # Query the database, trim any excess white space, convert all columns to character type, adjust producttype to PROPER to prevent issues due to 
+    # Query the database, trim any excess white space, convert all columns to character type, adjust producttype to PROPER to prevent issues due to
     # case sensitivty when pvitoting table and convert the volumes to numeric.
     enertia_production = data.frame(RODBC::sqlQuery(db_handle, query))
     enertia_production[] = lapply(enertia_production, trimws)
@@ -441,6 +441,9 @@ get_Enertia_Production = function(well_comp_codes){
                                         GAS = enertia_production[ ,"GAS"],
                                         PPROD = enertia_production[ ,"PPROD"],
                                         WATER = enertia_production[ ,"WATER"], stringsAsFactors = FALSE)
+        # Convert PPROD units from gallons to stb (42gal = 1stb)
+        enertia_production$PPROD = enertia_production$PPROD/42
+
     }
 
   return(enertia_production)
