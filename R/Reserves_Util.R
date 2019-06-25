@@ -403,11 +403,13 @@ get_Enertia_Production = function(well_comp_codes){
                            ON pdMasProdAllocDetail.DtlPropHID = pdRptWellCompletionAssetTeamHierarchy.WellCompHID
                              WHERE pdRptWellCompletionAssetTeamHierarchy.WellCompCode In (", paste0("'", well_comp_codes, collapse ="',") ,"')
                                AND pdMasProdAllocDetail.DtlProdDisp = 'FRM';")
-    # Query the database, trim any excess white space, convert all factor columns to character, and convert the volumes to numeric.
+    # Query the database, trim any excess white space, convert all columns to character type, adjust producttype to PROPER to prevent issues due to 
+    # case sensitivty when pvitoting table and convert the volumes to numeric.
     enertia_production = data.frame(RODBC::sqlQuery(db_handle, query))
     enertia_production[] = lapply(enertia_production, trimws)
     enertia_production[] = lapply(enertia_production, as.character)
     enertia_production[,"DtlVolume"] = as.numeric(enertia_production[,"DtlVolume"])
+    enertia_production[, "DtlProdCode"] = toupper(enertia_production[, "DtlProdCode"])
     # Close ODBC data connection to free up datasource.
     RODBC::odbcClose(channel = db_handle)
 
