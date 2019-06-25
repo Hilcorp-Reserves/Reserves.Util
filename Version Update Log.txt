@@ -3,7 +3,7 @@ Version Update v 0.2.1
 	What has been updated?:
 		 get_Enertia_Production()
 			- Adjusted logic in the code to catch case sensitivity in the product type which in the past resulted in more than one column per phase.
-
+			- Units for PPROD have been corrected from gallons to bbl.
 
 Version Update v 0.2.0
 
