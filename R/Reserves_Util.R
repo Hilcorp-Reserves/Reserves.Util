@@ -387,63 +387,35 @@ get_Economics = function(server, database, PROPNUM, scenario_name, view_by = "Sc
 #' Enertia Completion Code within the well_comp_codes vector.
 get_Enertia_Production = function(well_comp_codes){
     #Connect to Datasource
-    db_handle = get_dbhandle(server = "Enertia04", database = "Enertia_Reports")
+    db_handle = get_dbhandle(server = "enertia03", database = "HEC_Repository")
     #Compile Query
-    query = paste0("SELECT pdRptWellCompletionAssetTeamHierarchy.WellCompCode,
-                           pdRptWellCompletionAssetTeamHierarchy.WellCompName,
-                           pdMasProdAllocDetail.DtlProdDate,
-                           pdMasProdAllocDetail.DtlProdCode,
-                           pdMasProdAllocDetail.DtlProdDisp,
-                           pdMasProdAllocDetail.DtlVolume,
-                           pdRptWellCompletionAssetTeamHierarchy.FieldName,
-                           pdRptWellCompletionAssetTeamHierarchy.SubFieldName,
-                           pdRptWellCompletionAssetTeamHierarchy.AssetTeamCode
-                           FROM pdMasProdAllocDetail
-                           INNER JOIN pdRptWellCompletionAssetTeamHierarchy
-                           ON pdMasProdAllocDetail.DtlPropHID = pdRptWellCompletionAssetTeamHierarchy.WellCompHID
-                             WHERE pdRptWellCompletionAssetTeamHierarchy.WellCompCode In (", paste0("'", well_comp_codes, collapse ="',") ,"')
-                               AND pdMasProdAllocDetail.DtlProdDisp = 'FRM';")
+    query = paste0("SELECT ofm_Lineage.WellCompCode,
+                    ofm_Monthly.ProdDate,
+                    ofm_Monthly.OilProduction,
+                    ofm_Monthly.TotalGasProduction,
+                    ofm_Monthly.PProdVol,
+                    ofm_Monthly.WaterProduction
+                    FROM ofm_Lineage INNER JOIN ofm_Monthly ON ofm_Lineage.WellCompHID = ofm_Monthly.WellCompHID
+                    WHERE ofm_Lineage.WellCompCode IN (", paste0("'", well_comp_codes, collapse ="',") , "');")
+
     # Query the database, trim any excess white space, convert all columns to character type, adjust producttype to PROPER to prevent issues due to
     # case sensitivty when pvitoting table and convert the volumes to numeric.
     enertia_production = data.frame(RODBC::sqlQuery(db_handle, query))
     enertia_production[] = lapply(enertia_production, trimws)
     enertia_production[] = lapply(enertia_production, as.character)
-    enertia_production[,"DtlVolume"] = as.numeric(enertia_production[,"DtlVolume"])
-    enertia_production[, "DtlProdCode"] = toupper(enertia_production[, "DtlProdCode"])
+    enertia_production[,"OilProduction"] = as.numeric(enertia_production[,"OilProduction"])
+    enertia_production[,"TotalGasProduction"] = as.numeric(enertia_production[,"TotalGasProduction"])
+    enertia_production[,"PProdVol"] = as.numeric(enertia_production[,"PProdVol"])
+    enertia_production[,"WaterProduction"] = as.numeric(enertia_production[,"WaterProduction"])
+    names(enertia_production) = c("WellCompCode", "Date", "OIL", "GAS", "PPROD", "WATER")
     # Close ODBC data connection to free up datasource.
     RODBC::odbcClose(channel = db_handle)
-
-    # PIVOT table by production code
-    enertia_production = tryCatch(reshape2::dcast(data = enertia_production,
-                                                  formula = WellCompCode+DtlProdDate~DtlProdCode,
-                                                  value.var = "DtlVolume",
-                                                  fun.aggregate = sum),
-                         error = function(cond){
-                                   print("ERROR: Data Not Found. Make sure the enertia entity exists.")
-                                   enertia_production = NULL
-
-                                 }
-                         )
 
     if(!is.null(enertia_production)){
         # Replace all NA values within product columns with a 0
         enertia_production[is.na(enertia_production)] = 0
-        #Add missing columns with 0 if data does'nt exist
-        if(!is.element("GAS", names(enertia_production))){enertia_production = dplyr::bind_cols(enertia_production, GAS = rep(0, nrow(enertia_production)))}
-        if(!is.element("OIL", names(enertia_production))){enertia_production = dplyr::bind_cols(enertia_production, OIL = rep(0, nrow(enertia_production)))}
-        if(!is.element("WATER", names(enertia_production))){enertia_production = dplyr::bind_cols(enertia_production, WATER = rep(0, nrow(enertia_production)))}
-        if(!is.element("PPROD", names(enertia_production))){enertia_production = dplyr::bind_cols(enertia_production, PPROD = rep(0, nrow(enertia_production)))}
-
-        #Rearrange columns to maintain consistent table structure upon return.
-        enertia_production = data.frame(Enertia_Code = enertia_production[ ,"WellCompCode"],
-                                        Date = enertia_production[ ,"DtlProdDate"],
-                                        OIL = enertia_production[ ,"OIL"],
-                                        GAS = enertia_production[ ,"GAS"],
-                                        PPROD = enertia_production[ ,"PPROD"],
-                                        WATER = enertia_production[ ,"WATER"], stringsAsFactors = FALSE)
         # Convert PPROD units from gallons to stb (42gal = 1stb)
         enertia_production$PPROD = enertia_production$PPROD/42
-
     }
 
   return(enertia_production)
@@ -463,45 +435,36 @@ get_Enertia_Production = function(well_comp_codes){
 #' Asset Team Code within the asset_team_code vector.
 get_Enertia_Lineage_by_Asset_Team = function(asset_team_code){
 
-    db_handle_enertia04 = get_dbhandle(server = "ENERTIA04", database = "Enertia_Reports")
-    db_handle_enertia01 = get_dbhandle(server = "ENERTIA01", database = "HEC_Enertia")
+    db_handle_enertia03 = get_dbhandle(server = "ENERTIA03", database = "HEC_Repository")
+
     #Compile Query
-    query_enertia04 = paste0("SELECT pdRptWellCompletionAssetTeamHierarchy.WellCompCode,
-                           pdRptWellCompletionAssetTeamHierarchy.WellCompName,
-                           pdRptWellCompletionAssetTeamHierarchy.APINumber,
-                           pdRptWellCompletionAssetTeamHierarchy.FieldName,
-                           pdRptWellCompletionAssetTeamHierarchy.FieldCode,
-                           pdRptWellCompletionAssetTeamHierarchy.SubFieldName,
-                           pdRptWellCompletionAssetTeamHierarchy.SubFieldCode,
-                           pdRptWellCompletionAssetTeamHierarchy.AssetTeamCode,
-                           pdRptWellCompletionAssetTeamHierarchy.OperatorName,
-                           pdRptWellCompletionAssetTeamHierarchy.State,
-                           pdRptWellCompletionAssetTeamHierarchy.County
-                           FROM pdRptWellCompletionAssetTeamHierarchy
-                           WHERE pdRptWellCompletionAssetTeamHierarchy.AssetTeamCode In (", paste0("'", asset_team_code, collapse ="',") ,"');")
+    query_enertia03_lineage = paste0("SELECT ofm_Lineage.AssetTeamCode,
+                                      ofm_Master.ApiNumber12,
+                                      ofm_Lineage.WellboreCode,
+                                      ofm_Lineage.WellboreName,
+                                      ofm_Lineage.WellCompCode,
+                                      ofm_Lineage.WellCompName,
+                                      ofm_Master.Reservoir,
+                                      ofm_Lineage.FieldCode,
+                                      ofm_Lineage.FieldName,
+                                      ofm_Lineage.SubFieldCode,
+                                      ofm_Lineage.SubFieldName,
+                                      ofm_Lineage.FacPlatCode,
+                                      ofm_Lineage.FacPlatName,
+                                      ofm_Master.State,
+                                      ofm_Master.County,
+                                      ofm_Master.OperatorName
+                              FROM ofm_Master INNER JOIN ofm_Lineage ON ofm_Master.WellCompHID = ofm_Lineage.WellCompHID
+                              WHERE ofm_Lineage.AssetTeamCode IN (", paste0("'", asset_team_code, collapse ="',") ,"');")
+    enertia03_lineage = data.frame(RODBC::sqlQuery(db_handle_enertia03, query_enertia03_lineage))
+    enertia03_lineage[] = lapply(enertia03_lineage, trimws)
+    enertia03_lineage[] = lapply(enertia03_lineage, as.character)
 
-    query_enertia01 = paste0("SELECT hec_FbsLineage.WellCompCd,
-                           hec_FbsLineage.WellboreCd,
-                           hec_FbsLineage.WellboreNm,
-                           hec_FbsLineage.AssetTeamCd
-                           FROM hec_FbsLineage
-                           WHERE hec_FbsLineage.AssetTeamCd In (", paste0("'", asset_team_code, collapse ="',") ,"');")
-
-
-    # Query the database, trim any excess white space, convert all factor columns to character, and convert the volumes to numeric.
-    enertia_lineage_04 = data.frame(RODBC::sqlQuery(db_handle_enertia04, query_enertia04))
-    enertia_lineage_04[] = lapply(enertia_lineage_04, trimws)
-    enertia_lineage_04[] = lapply(enertia_lineage_04, as.character)
-    enertia_lineage_01 = data.frame(RODBC::sqlQuery(db_handle_enertia01, query_enertia01))
-    enertia_lineage_01[] = lapply(enertia_lineage_01, trimws)
-    enertia_lineage_01[] = lapply(enertia_lineage_01, as.character)
     # Close ODBC data connection to free up datasource.
-    RODBC::odbcClose(channel = db_handle_enertia04)
-    RODBC::odbcClose(channel = db_handle_enertia01)
+    RODBC::odbcClose(channel = db_handle_enertia03)
 
-    enertia_lineage = dplyr::inner_join(enertia_lineage_01, enertia_lineage_04, by = c('WellCompCd' = 'WellCompCode')) %>% data.frame(.,stringsAsFactors = FALSE)
-    enertia_lineage = enertia_lineage[, c(2,3,1,5:14)]
-    names(enertia_lineage) = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "FieldName", "FieldCode", "SubFieldName", "SubFieldCode", "AssetTeamCode", "OperatorName", "State", "County")
+    enertia_lineage = enertia03_lineage[, c(3,4,5,6,2,7,9,8,11,10,1,16,14,15)]
+    names(enertia_lineage) = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "Reservoir", "FieldName", "FieldCode", "SubFieldName", "SubFieldCode", "AssetTeamCode", "OperatorName", "State", "County")
 
     return(enertia_lineage)
 }
@@ -520,46 +483,35 @@ get_Enertia_Lineage_by_Asset_Team = function(asset_team_code){
 #' Field Code within the field_code vector.
 get_Enertia_Lineage_by_Field_Code = function(field_code){
 
-    db_handle_enertia04 = get_dbhandle(server = "ENERTIA04", database = "Enertia_Reports")
-    db_handle_enertia01 = get_dbhandle(server = "ENERTIA01", database = "HEC_Enertia")
+    db_handle_enertia03 = get_dbhandle(server = "ENERTIA03", database = "HEC_Repository")
 
     #Compile Query
-    query_enertia04 = paste0("SELECT pdRptWellCompletionAssetTeamHierarchy.WellCompCode,
-                           pdRptWellCompletionAssetTeamHierarchy.WellCompName,
-                           pdRptWellCompletionAssetTeamHierarchy.APINumber,
-                           pdRptWellCompletionAssetTeamHierarchy.FieldName,
-                           pdRptWellCompletionAssetTeamHierarchy.FieldCode,
-                           pdRptWellCompletionAssetTeamHierarchy.SubFieldName,
-                           pdRptWellCompletionAssetTeamHierarchy.SubFieldCode,
-                           pdRptWellCompletionAssetTeamHierarchy.AssetTeamCode,
-                           pdRptWellCompletionAssetTeamHierarchy.OperatorName,
-                           pdRptWellCompletionAssetTeamHierarchy.State,
-                           pdRptWellCompletionAssetTeamHierarchy.County
-                           FROM pdRptWellCompletionAssetTeamHierarchy
-                           WHERE pdRptWellCompletionAssetTeamHierarchy.FieldCode In (", paste0("'", field_code, collapse ="',") ,"');")
+    query_enertia03_lineage = paste0("SELECT ofm_Lineage.AssetTeamCode,
+                                      ofm_Master.ApiNumber12,
+                                      ofm_Lineage.WellboreCode,
+                                      ofm_Lineage.WellboreName,
+                                      ofm_Lineage.WellCompCode,
+                                      ofm_Lineage.WellCompName,
+                                      ofm_Master.Reservoir,
+                                      ofm_Lineage.FieldCode,
+                                      ofm_Lineage.FieldName,
+                                      ofm_Lineage.SubFieldCode,
+                                      ofm_Lineage.SubFieldName,
+                                      ofm_Lineage.FacPlatCode,
+                                      ofm_Lineage.FacPlatName,
+                                      ofm_Master.State,
+                                      ofm_Master.County,
+                                      ofm_Master.OperatorName
+                              FROM ofm_Master INNER JOIN ofm_Lineage ON ofm_Master.WellCompHID = ofm_Lineage.WellCompHID
+                              WHERE ofm_Lineage.FieldCode IN (", paste0("'", field_code, collapse ="',") ,"');")
+    enertia03_lineage = data.frame(RODBC::sqlQuery(db_handle_enertia03, query_enertia03_lineage))
+    enertia03_lineage[] = lapply(enertia03_lineage, trimws)
+    enertia03_lineage[] = lapply(enertia03_lineage, as.character)
 
-    query_enertia01 = paste0("SELECT hec_FbsLineage.WellCompCd,
-                           hec_FbsLineage.WellboreCd,
-                           hec_FbsLineage.WellboreNm,
-                           hec_FbsLineage.FieldCd
-                           FROM hec_FbsLineage
-                           WHERE hec_FbsLineage.FieldCd In (", paste0("'", field_code, collapse ="',") ,"');")
-
-    # Query the database, trim any excess white space, convert all factor columns to character, and convert the volumes to numeric.
-    enertia_lineage_04 = data.frame(RODBC::sqlQuery(db_handle_enertia04, query_enertia04))
-    enertia_lineage_04[] = lapply(enertia_lineage_04, trimws)
-    enertia_lineage_04[] = lapply(enertia_lineage_04, as.character)
-    enertia_lineage_01 = data.frame(RODBC::sqlQuery(db_handle_enertia01, query_enertia01))
-    enertia_lineage_01[] = lapply(enertia_lineage_01, trimws)
-    enertia_lineage_01[] = lapply(enertia_lineage_01, as.character)
     # Close ODBC data connection to free up datasource.
-    RODBC::odbcClose(channel = db_handle_enertia04)
-    RODBC::odbcClose(channel = db_handle_enertia01)
-
-    enertia_lineage = dplyr::inner_join(enertia_lineage_01, enertia_lineage_04, by = c('WellCompCd' = 'WellCompCode')) %>% data.frame(.,stringsAsFactors = FALSE)
-    enertia_lineage = enertia_lineage[, c(2,3,1,5:14)]
-    names(enertia_lineage) = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "FieldName", "FieldCode", "SubFieldName", "SubFieldCode", "AssetTeamCode", "OperatorName", "State", "County")
-
+    RODBC::odbcClose(channel = db_handle_enertia03)
+    enertia_lineage = enertia03_lineage[, c(3,4,5,6,2,7,9,8,11,10,1,16,14,15)]
+    names(enertia_lineage) = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "Reservoir", "FieldName", "FieldCode", "SubFieldName", "SubFieldCode", "AssetTeamCode", "OperatorName", "State", "County")
 
   return(enertia_lineage)
 }
@@ -578,44 +530,35 @@ get_Enertia_Lineage_by_Field_Code = function(field_code){
 #' Enertia Code within the enertia_code vector.
 get_Enertia_Lineage_by_Enertia_Code = function(enertia_code){
 
-    db_handle_enertia04 = get_dbhandle(server = "ENERTIA04", database = "Enertia_Reports")
-    db_handle_enertia01 = get_dbhandle(server = "ENERTIA01", database = "HEC_Enertia")
+    db_handle_enertia03 = get_dbhandle(server = "ENERTIA03", database = "HEC_Repository")
 
     #Compile Query
-    query_enertia04 = paste0("SELECT pdRptWellCompletionAssetTeamHierarchy.WellCompCode,
-                           pdRptWellCompletionAssetTeamHierarchy.WellCompName,
-                           pdRptWellCompletionAssetTeamHierarchy.APINumber,
-                           pdRptWellCompletionAssetTeamHierarchy.FieldName,
-                           pdRptWellCompletionAssetTeamHierarchy.FieldCode,
-                           pdRptWellCompletionAssetTeamHierarchy.SubFieldName,
-                           pdRptWellCompletionAssetTeamHierarchy.SubFieldCode,
-                           pdRptWellCompletionAssetTeamHierarchy.AssetTeamCode,
-                           pdRptWellCompletionAssetTeamHierarchy.OperatorName,
-                           pdRptWellCompletionAssetTeamHierarchy.State,
-                           pdRptWellCompletionAssetTeamHierarchy.County
-                           FROM pdRptWellCompletionAssetTeamHierarchy
-                           WHERE pdRptWellCompletionAssetTeamHierarchy.WellCompCode In (", paste0("'", enertia_code, collapse ="',") ,"');")
-
-    query_enertia01 = paste0("SELECT hec_FbsLineage.WellCompCd,
-                           hec_FbsLineage.WellboreCd,
-                           hec_FbsLineage.WellboreNm
-                           FROM hec_FbsLineage
-                           WHERE hec_FbsLineage.WellCompCd In (", paste0("'", enertia_code, collapse ="',") ,"');")
-
-    # Query the database, trim any excess white space, convert all factor columns to character, and convert the volumes to numeric.
-    enertia_lineage_04 = data.frame(RODBC::sqlQuery(db_handle_enertia04, query_enertia04))
-    enertia_lineage_04[] = lapply(enertia_lineage_04, trimws)
-    enertia_lineage_04[] = lapply(enertia_lineage_04, as.character)
-    enertia_lineage_01 = data.frame(RODBC::sqlQuery(db_handle_enertia01, query_enertia01))
-    enertia_lineage_01[] = lapply(enertia_lineage_01, trimws)
-    enertia_lineage_01[] = lapply(enertia_lineage_01, as.character)
+    query_enertia03_lineage = paste0("SELECT ofm_Lineage.AssetTeamCode,
+                                      ofm_Master.ApiNumber12,
+                                      ofm_Lineage.WellboreCode,
+                                      ofm_Lineage.WellboreName,
+                                      ofm_Lineage.WellCompCode,
+                                      ofm_Lineage.WellCompName,
+                                      ofm_Master.Reservoir,
+                                      ofm_Lineage.FieldCode,
+                                      ofm_Lineage.FieldName,
+                                      ofm_Lineage.SubFieldCode,
+                                      ofm_Lineage.SubFieldName,
+                                      ofm_Lineage.FacPlatCode,
+                                      ofm_Lineage.FacPlatName,
+                                      ofm_Master.State,
+                                      ofm_Master.County,
+                                      ofm_Master.OperatorName
+                              FROM ofm_Master INNER JOIN ofm_Lineage ON ofm_Master.WellCompHID = ofm_Lineage.WellCompHID
+                              WHERE ofm_Lineage.WellCompCode IN (", paste0("'", enertia_code, collapse ="',") ,"');")
+    enertia03_lineage = data.frame(RODBC::sqlQuery(db_handle_enertia03, query_enertia03_lineage))
+    enertia03_lineage[] = lapply(enertia03_lineage, trimws)
+    enertia03_lineage[] = lapply(enertia03_lineage, as.character)
     # Close ODBC data connection to free up datasource.
-    RODBC::odbcClose(channel = db_handle_enertia04)
-    RODBC::odbcClose(channel = db_handle_enertia01)
+    RODBC::odbcClose(channel = db_handle_enertia03)
 
-    enertia_lineage = dplyr::inner_join(enertia_lineage_01, enertia_lineage_04, by = c('WellCompCd' = 'WellCompCode'), keep = TRUE) %>% data.frame(.,stringsAsFactors = FALSE)
-    enertia_lineage = enertia_lineage[, c(2,3,1,4:13)]
-    names(enertia_lineage) = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "FieldName", "FieldCode", "SubFieldName", "SubFieldCode", "AssetTeamCode", "OperatorName", "State", "County")
+    enertia_lineage = enertia03_lineage[, c(3,4,5,6,2,7,9,8,11,10,1,16,14,15)]
+    names(enertia_lineage) = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "Reservoir", "FieldName", "FieldCode", "SubFieldName", "SubFieldCode", "AssetTeamCode", "OperatorName", "State", "County")
 
 
   return(enertia_lineage)
@@ -624,75 +567,51 @@ get_Enertia_Lineage_by_Enertia_Code = function(enertia_code){
 
 #' Retrieve Enertia Lineage as a data frame.
 #'
-#' @param API A string.
-#' @return A dataframe containing the Enertia Lineage for a specified vector of API Numbers
+#' @param API12 A string.
+#' @return A dataframe containing the Enertia Lineage for a specified vector of API12 Numbers
 #' @examples
 #' get_Enertia_Lineage_by_API("5002921693")
-#' get_Enertia_Lineage_by_API(c("5002921693", "50029219050000"))
+#' get_Enertia_Lineage_by_API(c("5002921693", "5002921905"))
 #' @description
 #' The following functin will make a default connection to the Enertia_Reports database located on the Default Enertia04 Server.
-#' It will then take the API vector which contains a sequence of API Numbers to query.
+#' It will then take the API12 vector which contains a sequence of API12 Numbers to query.
 #' The function will then return a dataframe object with all enertia entities that exists for each
-#' API within the API vector.
-get_Enertia_Lineage_by_API = function(API){
+#' API12 within the API12 vector.
+get_Enertia_Lineage_by_API12 = function(API12){
 
-    db_handle_enertia04 = get_dbhandle(server = "ENERTIA04", database = "Enertia_Reports")
-    db_handle_enertia01 = get_dbhandle(server = "ENERTIA01", database = "HEC_Enertia")
+    db_handle_enertia03 = get_dbhandle(server = "ENERTIA03", database = "HEC_Repository")
 
-    enertia_lineage_04 = lapply(X = API, FUN = function(i){
+    if(grepl(pattern = "-", x = API12)){API12 = stringr::str_replace_all(string = API12, pattern = "-", replacement = "")}
+    if(nchar(API12) > 12){API12 = substr(API12, start = 1, stop = 12)}
 
-        #Compile Query
-        query_enertia04 = paste0("SELECT pdRptWellCompletionAssetTeamHierarchy.WellCompCode,
-                                pdRptWellCompletionAssetTeamHierarchy.WellCompName,
-                                pdRptWellCompletionAssetTeamHierarchy.APINumber,
-                                pdRptWellCompletionAssetTeamHierarchy.FieldName,
-                                pdRptWellCompletionAssetTeamHierarchy.FieldCode,
-                                pdRptWellCompletionAssetTeamHierarchy.SubFieldName,
-                                pdRptWellCompletionAssetTeamHierarchy.SubFieldCode,
-                                pdRptWellCompletionAssetTeamHierarchy.AssetTeamCode,
-                                pdRptWellCompletionAssetTeamHierarchy.OperatorName,
-                                pdRptWellCompletionAssetTeamHierarchy.State,
-                                pdRptWellCompletionAssetTeamHierarchy.County
-                                FROM pdRptWellCompletionAssetTeamHierarchy
-                                WHERE (((pdRptWellCompletionAssetTeamHierarchy.APINumber) Like '", paste0(i, "%'));"))
-
-
-                            # Query the database, trim any excess white space, convert all factor columns to character, and convert the volumes to numeric.
-                            enertia_lineage = data.frame(RODBC::sqlQuery(db_handle_enertia04, query_enertia04))
-                            enertia_lineage[] = lapply(enertia_lineage, trimws)
-                            enertia_lineage[] = lapply(enertia_lineage, as.character)
-
-                          return(enertia_lineage)
-      }) %>% dplyr::bind_rows(.)
-
-    enertia_lineage_01 = lapply(X = API, FUN = function(i){
-
-        #Compile Query
-        query_enertia01 = paste0("SELECT hec_FbsLineage.WellCompCd,
-                           hec_FbsLineage.WellboreCd,
-                           hec_FbsLineage.WellboreNm
-                           FROM hec_FbsLineage
-                           WHERE hec_FbsLineage.WellCompCd In (", paste0("'", enertia_lineage_04$WellCompCode, collapse ="',") ,"');")
-
-
-                            # Query the database, trim any excess white space, convert all factor columns to character, and convert the volumes to numeric.
-                            enertia_lineage = data.frame(RODBC::sqlQuery(db_handle_enertia01, query_enertia01))
-                            enertia_lineage[] = lapply(enertia_lineage, trimws)
-                            enertia_lineage[] = lapply(enertia_lineage, as.character)
-
-                          return(enertia_lineage)
-     }) %>% dplyr::bind_rows(.)
-
+    #Compile Query
+    query_enertia03_lineage = paste0("SELECT ofm_Lineage.AssetTeamCode,
+                                      ofm_Master.ApiNumber12,
+                                      ofm_Lineage.WellboreCode,
+                                      ofm_Lineage.WellboreName,
+                                      ofm_Lineage.WellCompCode,
+                                      ofm_Lineage.WellCompName,
+                                      ofm_Master.Reservoir,
+                                      ofm_Lineage.FieldCode,
+                                      ofm_Lineage.FieldName,
+                                      ofm_Lineage.SubFieldCode,
+                                      ofm_Lineage.SubFieldName,
+                                      ofm_Lineage.FacPlatCode,
+                                      ofm_Lineage.FacPlatName,
+                                      ofm_Master.State,
+                                      ofm_Master.County,
+                                      ofm_Master.OperatorName
+                              FROM ofm_Master INNER JOIN ofm_Lineage ON ofm_Master.WellCompHID = ofm_Lineage.WellCompHID
+                              WHERE ofm_Master.ApiNumber12 IN (", paste0("'", API12, collapse ="',") ,"');")
+    enertia03_lineage = data.frame(RODBC::sqlQuery(db_handle_enertia03, query_enertia03_lineage))
+    enertia03_lineage[] = lapply(enertia03_lineage, trimws)
+    enertia03_lineage[] = lapply(enertia03_lineage, as.character)
 
     # Close ODBC data connection to free up datasource.
-    RODBC::odbcClose(channel = db_handle_enertia04)
-    RODBC::odbcClose(channel = db_handle_enertia01)
+    RODBC::odbcClose(channel = db_handle_enertia03)
 
-    enertia_lineage = dplyr::inner_join(enertia_lineage_01, enertia_lineage_04, by = c('WellCompCd' = 'WellCompCode'), keep = TRUE) %>% data.frame(.,stringsAsFactors = FALSE)
-    enertia_lineage = enertia_lineage[, c(2,3,1,4:13)]
-    names(enertia_lineage) = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "FieldName", "FieldCode", "SubFieldName", "SubFieldCode", "AssetTeamCode", "OperatorName", "State", "County")
-
-
+    enertia_lineage = enertia03_lineage[, c(3,4,5,6,2,7,9,8,11,10,1,16,14,15)]
+    names(enertia_lineage) = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "Reservoir", "FieldName", "FieldCode", "SubFieldName", "SubFieldCode", "AssetTeamCode", "OperatorName", "State", "County")
 
   return(enertia_lineage)
 }
