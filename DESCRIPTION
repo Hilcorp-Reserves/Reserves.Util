@@ -1,7 +1,7 @@
 Package: Reserves.Util
 Type: Package
 Title: Aries and Reserves Utilities
-Version: 0.2.2
+Version: 0.3.0
 Author: Alishan Dhukka
 Maintainer: Alishan Dhukka <adhukka@hilcorp.com>
 Description: These set of functions help extract Aries economic data from a speicified data source as well as production data and lineage information from the Enertia04 server.
