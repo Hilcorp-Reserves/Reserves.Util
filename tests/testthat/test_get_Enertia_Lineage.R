@@ -26,16 +26,16 @@ test_that("The output is of type data.frame", {
 test_that("The columns are ordered correctly", {
 
   expect_equal(object = names(get_Enertia_Lineage_by_API(API = API)),
-               expected = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "FieldName", "FieldCode", "SubFieldName",
+               expected = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "Reservoir", "FieldName", "FieldCode", "SubFieldName",
                             "SubFieldCode", "AssetTeamCode", "OperatorName", "State", "County"))
   expect_equal(object = names(get_Enertia_Lineage_by_Asset_Team(asset_team_code = asset_team)),
-               expected = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "FieldName", "FieldCode", "SubFieldName",
+               expected = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "Reservoir", "FieldName", "FieldCode", "SubFieldName",
                             "SubFieldCode", "AssetTeamCode", "OperatorName", "State", "County"))
   expect_equal(object = names(get_Enertia_Lineage_by_Enertia_Code(enertia_code = completion_code)),
-               expected = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "FieldName", "FieldCode", "SubFieldName",
+               expected = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "Reservoir", "FieldName", "FieldCode", "SubFieldName",
                             "SubFieldCode", "AssetTeamCode", "OperatorName", "State", "County"))
   expect_equal(object = names(get_Enertia_Lineage_by_Field_Code(field_code = field_code)),
-               expected = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "FieldName", "FieldCode", "SubFieldName",
+               expected = c("WellBoreCode", "WellBoreName", "WellCompCode", "WellCompName", "APINumber", "Reservoir", "FieldName", "FieldCode", "SubFieldName",
                             "SubFieldCode", "AssetTeamCode", "OperatorName", "State", "County"))
 
 })

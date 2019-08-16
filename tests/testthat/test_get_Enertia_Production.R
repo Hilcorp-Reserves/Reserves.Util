@@ -15,7 +15,7 @@ test_that("The output is of type data.frame", {
 
 test_that("The columns are ordered correctly", {
 
-  expect_equal(object = names(enertia_production), expected = c("Enertia_Code", "Date", "OIL", "GAS", "PPROD", "WATER"))
+  expect_equal(object = names(enertia_production), expected = c("WellCompCode", "Date", "OIL", "GAS", "PPROD", "WATER"))
 
 })
 
