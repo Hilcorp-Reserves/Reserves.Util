@@ -1,3 +1,19 @@
+Version Update v 0.3.0
+
+	What has been updated?:
+		 get_Enertia_Lineage_by_Asset_Team()
+		 get_Enertia_Lineage_by_Field_Code()
+		 get_Enertia_Lineage_by_Enertia_Code()
+		 get_Enertia_Lineage_by_API()
+		 get_Enertia_Production()
+			- The above functins have been updated to use the enertia03 server.
+			- Primary tables queried are now through ofm which include both enertia and repository entities.
+			- Enertia Production now includes repository only volumes.
+			- Reservoir designations from both repository and enertia have been added to all lineage queries.
+	What's New?
+	   Tests have been added for the following function for use as checks in future version updates.
+
+
 Version Update v 0.2.2
 
 	What has been updated?:
