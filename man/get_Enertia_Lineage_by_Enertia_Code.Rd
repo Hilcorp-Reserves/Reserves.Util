@@ -2,7 +2,7 @@
 % Please edit documentation in R/Reserves_Util.R
 \name{get_Enertia_Lineage_by_Enertia_Code}
 \alias{get_Enertia_Lineage_by_Enertia_Code}
-\title{Retrieve Enertia Lineage as a data frame.}
+\title{Retrieve Enertia Lineage as a data frame from ofm tables in enertia03.}
 \usage{
 get_Enertia_Lineage_by_Enertia_Code(enertia_code)
 }
@@ -13,7 +13,7 @@ get_Enertia_Lineage_by_Enertia_Code(enertia_code)
 A dataframe containing the Enertia Lineage of a set of Asset Team Codes
 }
 \description{
-The following functin will make a default connection to the Enertia_Reports database located on the Default Enertia04 Server.
+The following functin will make a default connection to the ofm tables in the enertia03 server/HEC_Repository database.
 It will then take the enertia_code vector which contains a sequence of Enertia Codes to query.
 The function will then return a dataframe object with all enertia entities that exists for each
 Enertia Code within the enertia_code vector.

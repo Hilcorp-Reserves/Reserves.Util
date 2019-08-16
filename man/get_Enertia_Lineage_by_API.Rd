@@ -2,7 +2,7 @@
 % Please edit documentation in R/Reserves_Util.R
 \name{get_Enertia_Lineage_by_API}
 \alias{get_Enertia_Lineage_by_API}
-\title{Retrieve Enertia Lineage as a data frame.}
+\title{Retrieve Enertia Lineage as a data frame from ofm tables in enertia03.}
 \usage{
 get_Enertia_Lineage_by_API(API)
 }
@@ -13,7 +13,7 @@ get_Enertia_Lineage_by_API(API)
 A dataframe containing the Enertia Lineage for a specified vector of API Numbers
 }
 \description{
-The following functin will make a default connection to the Enertia_Reports database located on the Default Enertia04 Server.
+The following functin will make a default connection to the ofm tables in the enertia03 server/HEC_Repository database.
 It will then take the API vector which contains a sequence of API Numbers to query.
 The function will then return a dataframe object with all enertia entities that exists for each
 API within the API vector.
