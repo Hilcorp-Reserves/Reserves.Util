@@ -386,39 +386,60 @@ get_Economics = function(server, database, PROPNUM, scenario_name, view_by = "Sc
 #' The function will then return a dataframe object with all the enertia production data that exists for each
 #' Enertia Completion Code within the well_comp_codes vector.
 get_Enertia_Production = function(well_comp_codes){
-    #Connect to Datasource
-    db_handle = get_dbhandle(server = "enertia03", database = "HEC_Repository")
-    #Compile Query
-    query = paste0("SELECT ofm_Lineage.WellCompCode,
-                    ofm_Monthly.ProdDate,
-                    ofm_Monthly.OilProduction,
-                    ofm_Monthly.TotalGasProduction,
-                    ofm_Monthly.PProdVol,
-                    ofm_Monthly.WaterProduction
-                    FROM ofm_Lineage INNER JOIN ofm_Monthly ON ofm_Lineage.WellCompHID = ofm_Monthly.WellCompHID
-                    WHERE ofm_Lineage.WellCompCode IN (", paste0("'", well_comp_codes, collapse ="',") , "');")
-
-    # Query the database, trim any excess white space, convert all columns to character type, adjust producttype to PROPER to prevent issues due to
-    # case sensitivty when pvitoting table and convert the volumes to numeric.
-    enertia_production = data.frame(RODBC::sqlQuery(db_handle, query))
-    enertia_production[] = lapply(enertia_production, trimws)
-    enertia_production[] = lapply(enertia_production, as.character)
-    enertia_production[,"OilProduction"] = as.numeric(enertia_production[,"OilProduction"])
-    enertia_production[,"TotalGasProduction"] = as.numeric(enertia_production[,"TotalGasProduction"])
-    enertia_production[,"PProdVol"] = as.numeric(enertia_production[,"PProdVol"])
-    enertia_production[,"WaterProduction"] = as.numeric(enertia_production[,"WaterProduction"])
-    names(enertia_production) = c("WellCompCode", "Date", "OIL", "GAS", "PPROD", "WATER")
-    # Close ODBC data connection to free up datasource.
-    RODBC::odbcClose(channel = db_handle)
-
-    if(!is.null(enertia_production)){
-        # Replace all NA values within product columns with a 0
-        enertia_production[is.na(enertia_production)] = 0
-        # Convert PPROD units from gallons to stb (42gal = 1stb)
-        enertia_production$PPROD = enertia_production$PPROD/42
+  
+  tryCatch({
+        #Connect to Datasource
+        db_handle = get_dbhandle(server = "enertia03", database = "HEC_Repository")
+        #Compile Query
+        query = paste0("SELECT ofm_Lineage.WellCompCode,
+                        ofm_Monthly.ProdDate,
+                        ofm_Monthly.OilProduction,
+                        ofm_Monthly.GasProduction,
+                        ofm_Monthly.PProdVol,
+                        ofm_Monthly.WaterProduction,
+                        ofm_Monthly.TotalGasInjection,
+                        ofm_Monthly.WaterInjection,
+                        ofm_Monthly.TotalGasProduction
+                        FROM ofm_Lineage INNER JOIN ofm_Monthly ON ofm_Lineage.WellCompHID = ofm_Monthly.WellCompHID
+                        WHERE ofm_Lineage.WellCompCode IN (", paste0("'", well_comp_codes, collapse ="',") , "');")
+    
+        # Query the database, trim any excess white space, convert all columns to character type, adjust producttype to PROPER to prevent issues due to
+        # case sensitivty when pvitoting table and convert the volumes to numeric.
+        enertia_production = data.frame(RODBC::sqlQuery(db_handle, query))
+        enertia_production[] = lapply(enertia_production, trimws)
+        enertia_production[] = lapply(enertia_production, as.character)
+        enertia_production[,"OilProduction"] = as.numeric(enertia_production[,"OilProduction"])
+        enertia_production[,"GasProduction"] = as.numeric(enertia_production[,"GasProduction"])
+        enertia_production[,"PProdVol"] = as.numeric(enertia_production[,"PProdVol"])
+        enertia_production[,"WaterProduction"] = as.numeric(enertia_production[,"WaterProduction"])
+        enertia_production[,"TotalGasInjection"] = as.numeric(enertia_production[,"TotalGasInjection"])
+        enertia_production[,"WaterInjection"] = as.numeric(enertia_production[,"WaterInjection"])
+        enertia_production[,"TotalGasProduction"] = as.numeric(enertia_production[,"TotalGasProduction"])
+        enertia_production$TotalGasInjection = enertia_production$TotalGasProduction - enertia_production$GasProduction
+        
+        names(enertia_production) = c("WellCompCode", "Date", "OIL", "GAS", "PPROD", "WATER", "GAS_INJ", "WATER_INJ", "TotalGasProduction")
+        # Close ODBC data connection to free up datasource.
+        RODBC::odbcClose(channel = db_handle)
+    
+        if(!is.null(enertia_production)){
+            # Replace all NA values within product columns with a 0
+            enertia_production[is.na(enertia_production)] = 0
+            # Convert PPROD units from gallons to stb (42gal = 1stb)
+            enertia_production$PPROD = enertia_production$PPROD/42
+        }
+      
+      
+      return(enertia_production[, c("WellCompCode", "Date", "OIL", "GAS", "PPROD", "WATER", "GAS_INJ", "WATER_INJ")])
+        
+    },
+    error = function(cond){
+      
+      return(data.frame(ERROR = c("INVALID INPUTS OR UNABLE TO MAKE CONNECTION WITH SERVER")))
     }
+    
+  )
 
-  return(enertia_production)
+  
 }
 
 #' Retrieve Enertia Lineage as a data frame.
