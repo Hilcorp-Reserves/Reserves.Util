@@ -3,8 +3,7 @@
 ########################################################  Tests for get_Economics  #################################################
 
 
-scenario_name = c("FINAL0119_WF", "FINAL0119_JPM_HE1", "FINAL0119_HED_BNK", "FINAL0119_HE1_BNK",
-                  "FINAL0119_STRIP_HE1", "FINAL0119_STRIP_HED", "FINAL0119_SEC_HED", "FINAL0119_SEC_HE1")
+scenario_name = c("FINAL0719_JPM_HE1", "FINAL0719_BANK_HE1")
 ac_property = RODBC::sqlFetch(channel = get_dbhandle(server = "extsql01", database = "Aries"), sqtable = "Ariesadmin.AC_PROPERTY")
 ac_scenario = RODBC::sqlFetch(channel = get_dbhandle(server = "extsql01", database = "Aries"), sqtable = "Ariesadmin.AC_SCENARIO")
 ac_scenario[] = lapply(ac_scenario, as.character)
