@@ -1,10 +1,42 @@
+Version Update v 0.4.0
+
+
+	What's New?:
+		get_Aries_Enertia_Links_by_Area()
+		get_Aries_Enertia_Links_by_Enertia_Code()
+			- Quries the latest enertia links that exist with Aries for a list of asset team code or enertia code.
+			
+		get_Enertia_Lineage_by_API12()
+		  - Updated the function name for clarity.
+		  
+		get_Daily_Enertia_Production
+		  - Query the daily production and sales volumes for a list of enertia codes.
+		
+    create_Aries_Product_Table_by_Link()
+    create_Aries_Product_Table_by_Enertia_Code()
+      - Create a table formated for the AC_PRODUCT table consisting of production data from enertia/repository based on existing aries-enertia links.
+      
+
+	What has been updated?:
+		  Removed the following functions:
+			  Sidefile_to_Hard_Code()	
+			  Lookup_to_Hard_Code()	
+			  get_Enertia_Lineage_by_API()
+			  
+			All queries have been updated to use the enertia01b report server. 
+			Production queries are also pulling data from the ofm database.
+			All functions now allow export of data to the users desktop by setting the export parameter to TRUE.
+			
+			Tests have been updated.
+
+
 Version Update v 0.3.0
 
 	What has been updated?:
 		 get_Enertia_Lineage_by_Asset_Team()
 		 get_Enertia_Lineage_by_Field_Code()
 		 get_Enertia_Lineage_by_Enertia_Code()
-		 get_Enertia_Lineage_by_API()
+		 get_Enertia_Lineage_by_API12()
 		 get_Enertia_Production()
 			- The above functins have been updated to use the enertia03 server.
 			- Primary tables queried are now through ofm which include both enertia and repository entities.
@@ -13,7 +45,7 @@ Version Update v 0.3.0
 			- Gas volumes have been corrected to exclude injection volumes (Thanks CJ for catching that bust). 
 			- Query now includes Gas and Water Injection volumes.
 			
-	What's New?
+	What's New?:
 	   Tests have been added for the following function for use as checks in future version updates.
 
 
