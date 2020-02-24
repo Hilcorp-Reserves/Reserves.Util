@@ -4,8 +4,14 @@
 \alias{get_Economics}
 \title{Retrieve Aries economic data.}
 \usage{
-get_Economics(server, database, PROPNUM, scenario_name,
-  view_by = "Scenario")
+get_Economics(
+  server,
+  database,
+  PROPNUM,
+  scenario_name,
+  view_by = "Scenario",
+  export = FALSE
+)
 }
 \arguments{
 \item{server}{A string.}
@@ -17,6 +23,8 @@ get_Economics(server, database, PROPNUM, scenario_name,
 \item{scenario_name}{A string}
 
 \item{view_by}{A string}
+
+\item{export}{A bolean.}
 }
 \value{
 A dataframe containing Economic data

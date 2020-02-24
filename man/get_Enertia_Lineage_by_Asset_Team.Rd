@@ -2,21 +2,23 @@
 % Please edit documentation in R/Reserves_Util.R
 \name{get_Enertia_Lineage_by_Asset_Team}
 \alias{get_Enertia_Lineage_by_Asset_Team}
-\title{Retrieve Enertia Lineage as a data frame from ofm tables in enertia03.}
+\title{Retrieve Enertia Lineage as a data frame.}
 \usage{
-get_Enertia_Lineage_by_Asset_Team(asset_team_code)
+get_Enertia_Lineage_by_Asset_Team(asset_team_code, export = FALSE)
 }
 \arguments{
 \item{asset_team_code}{A string.}
+
+\item{export}{A bolean.}
 }
 \value{
-A dataframe containing the Enertia Lineage of a set of Asset Team Codes
+A dataframe containing the Enertia Lineage for a set of Asset Team Codes
 }
 \description{
-The following functin will make a default connection to the ofm tables in the enertia03 server/HEC_Repository database.
-It will then take the asset_team_code vector which contains a sequence of Enertia Asset Team Codes to query.
+The following functin will make a connection to the ofm database located on the Enertia01B server.
+It will then take the asset_team_code vector which contains a sequence of Enertia asset team codes to query.
 The function will then return a dataframe object with all enertia entities that exists for each
-Asset Team Code within the asset_team_code vector.
+asset team code within the asset_team_code vector.
 }
 \examples{
 get_Enertia_Lineage_by_Asset_Team("RMR")

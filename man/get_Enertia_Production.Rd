@@ -2,21 +2,23 @@
 % Please edit documentation in R/Reserves_Util.R
 \name{get_Enertia_Production}
 \alias{get_Enertia_Production}
-\title{Retrieve Enertia Production Data from ofm tables on enertia03.}
+\title{Retrieve Enertia Production Data.}
 \usage{
-get_Enertia_Production(well_comp_codes)
+get_Enertia_Production(well_comp_codes, export = FALSE)
 }
 \arguments{
 \item{well_comp_codes}{A string.}
+
+\item{export}{A bolean.}
 }
 \value{
 A dataframe containing Production data
 }
 \description{
-The following functin will make a default connection to the ofm tables in the enertia03 server/HEC_Repository database.
-It will then take the well_comp_codes vector which contains a sequence of Enertia Completion Codes to query.
-The function will then return a dataframe object with all the enertia production data that exists for each
-Enertia Completion Code within the well_comp_codes vector.
+The following functin will make a connection to the HEC_Repository database located on the Enertia01B Server.
+It will then take the well_comp_codes vector which contains a sequence of Enertia completion codes to query.
+The function will then return a dataframe object with all the monthly enertia production data that exists for each
+Enertia completion code within the well_comp_codes vector.
 }
 \examples{
 get_Enertia_Production("49.1016.0022.00")
