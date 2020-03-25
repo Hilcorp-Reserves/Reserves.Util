@@ -15,7 +15,7 @@ library(dplyr)
 library(stringr)
 library(reshape2)
 library(lubridate)
-options(stringsAsFactors = FALSE)
+#options(stringsAsFactors = FALSE)
 
 #' Create a SQL Connection
 #'
