@@ -9,6 +9,7 @@ License: Not Applicable
 Encoding: UTF-8
 LazyData: true
 Imports: RODBC, plyr, dplyr, magrittr, reshape2, tidyr, stringr, parallel, lubridate, data.table
+Depends: RODBC, plyr, dplyr, magrittr, reshape2, tidyr, stringr, parallel, lubridate, data.table
 RoxygenNote: 7.0.2
 Suggests: 
     testthat
